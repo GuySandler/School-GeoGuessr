@@ -2,90 +2,208 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CampoGuesser</title>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <title>Campoguessr</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
 </head>
-<body>
-    <section style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100">
-        <h1>Campolido Geoguesser {x} {y}</h1>
-        <div style="overflow:hidden;border:black 1px solid;">
-            <canvas id="canvas" width="700" height="600"></canvas>
-            <img style="display: none;" src="images/map.jpg" alt="map" id="map">
-            <img style="width:25px;position:absolute;" src="images/pin.svg" id="pin">
-        </div>
-        <button id="resetPin">reset pin?</button>
-    </section>
-</body>
 <style>
     body {
         margin: 0;
         padding: 0;
+        overflow: hidden;
+        font-family: ubuntu;
+    }
+    #map {
+        height: 100vh;
+        box-sizing: content-box;
+        z-index: 0;
+        cursor: crosshair;
+    }
+    .popup {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 25px;
+        border: 2px solid #df2020;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+    }
+    #popup1 {
+        display: hidden;
+    }
+    #popup2 {
+        display: hidden;
+    }
+
+    .popup-content {
+        margin-top: 20px;
+        margin-bottom:20px;
+    }
+
+    .close-popup, .ok-button {
+        padding: 5px 10px;
+        background-color: #ddd;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        background-color: #acaca5;
+    }
+
+    .close-popup {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .ok-button {
+        position: absolute;
+        bottom:10px;
+        left:10px
+    }
+
+    .sidebutton {
+        transform: translateX(10px);
+        position: absolute;
+        right: 0;
+        width: 310px;
+        height: 50px;
+        font-size: 40px;
+        background-color: #ce2f08;
+        color:white;
+        border:none;
+        border-radius: 15px 0 0 15px;
+        border-top: 1px solid white;
+
+        transition: all 0.2s ease-in-out;
+    }
+    .sidebutton:hover {
+        transform: translateX(0px);
+    }
+    .sidebutton:active {
+        background-color: #ff5c33;
     }
 </style>
-<script>
-    $(document).ready(function() {
-        let pinBool = false;
-        let x = 0;
-        let y = 0;
-        $(document).mousemove(function(event) {
-            if (!pinBool) {
-                x = event.pageX;
-                y = event.pageY;
+<body>
+    <div id="map"></div>
 
-                $('#pin').css({
-                    'left': (x-25/2)+'px',
-                    'top': (y-25)+'px',
-                });
+    <button style="top:0" id="open-popup1" class="sidebutton">Instructions</button>
+    <button style="top:50px" id="open-popup2" class="sidebutton">Key</button>
+
+    <!-- todo: refactor to only be 1 that is changing it's content or make more efficient -->
+    <div id="popup1" class="popup">
+        <div class="popup-content">
+            <center>Welcome to CampoGuessr</center>
+            <br>
+            You can: <ul><li>zoom</li> <li>pan</li> <li>click on the location you think the image is from</li></ul>
+            The closer you are the more points! <br>
+            Good luck!
+        </div>
+        <button id="close-popup1" class="close-popup">X</button>
+        <center><button id="ok-button1" class="ok-button">OK</button></center>
+    </div>
+
+    <div id="popup2" style="width:600px;height:340px;" class="popup">
+        <div class="popup-content">
+            <img style="border-radius:5px;height:300px;object-fit: scale-down;" src="images/labeled.png">
+        </div>
+        <button id="close-popup2" class="close-popup">X</button>
+        <button id="ok-button2" class="ok-button">OK</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script>
+        var map = L.map('map').setView([0, 0], 1.5); // Initial center and zoom
+        map.panTo(new L.LatLng(520*2, 400/2));
+
+        // Placeholder for image bounds (replace with actual values based on image size)
+        var imageBounds = [[0, 0], [(525), (400)]];
+
+        var imageOverlay = L.imageOverlay('./images/unlabeled.png', imageBounds).addTo(map);
+
+        // Add a permanent marker at [25, 25]
+        var pin = L.marker([25, 25]).addTo(map);
+
+        var previousMarker;
+        var previousLine;
+
+        map.on('click', function(e) {
+            // Remove previously placed marker if it exists
+            if (previousMarker) {
+                map.removeLayer(previousMarker);
             }
+            if (previousLine) {
+                map.removeLayer(previousLine);
+            }
+
+            var clickedCoord = e.latlng;
+
+            // Calculate distance using pythagorean theorem (replace with preferred method)
+            var distance = calculateDistance(pin.getLatLng(), clickedCoord);
+            console.log("Distance from pin (map units): " + distance);
+
+            // Add a new marker at the clicked location
+            previousMarker = L.marker(clickedCoord).addTo(map);
+            previousLine = L.polyline([[25, 25], clickedCoord], {color: 'red', weight: 2}).addTo(map);
         });
 
-        let canvasRef = $("#canvas");
-        let mapPos = canvasRef.offset();
+        function calculateDistance(pointA, pointB) {
+            var lat1 = pointA.lat;
+            var lng1 = pointA.lng;
+            var lat2 = pointB.lat;
+            var lng2 = pointB.lng;
 
-        $('#canvas').on('click', function() {
-            pinBool = true;
-            console.log(x+' '+y+' clicked');
-            console.log(mapPos.left+' '+mapPos.top+' mapPos');
-            console.log(Math.round(Math.sqrt((Math.pow(mapPos.left-x,2))+(Math.pow(mapPos.top-y,2))))+' away from orgin');
-            drawLine(0, 0, x-mapPos.left, y-mapPos.top);
-        });
-        $('#resetPin').on('click', function() {
-            pinBool = false;
-        });
-
-
-        const c = document.getElementById("canvas");
-        const ctx = c.getContext('2d');
-        // canvas.width = window.innerWidth * 0.60;
-        // canvas.height = window.innerHeight * 0.75;
-        const img = document.getElementById("map");
-        // ctx.drawImage(img, 0, 0, window.innerWidth * 0.60, window.innerHeight * 0.75);
-        ctx.drawImage(img, 0, 0, 700, 600);
-
-        function drawLine(x1, y1, x2, y2) {
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.strokeStyle = 'red';
-            ctx.stroke();
+            // Simple distance based on change in latitude and longitude (replace with more accurate method if needed)
+            var x = Math.abs(lng1 - lng2);
+            var y = Math.abs(lat1 - lat2);
+            var distance = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+            return distance;
         }
-        drawLine(0, 0, x, y);
 
-        // var newElement = $('<div>');
+        // Popup logic
+        $(document).ready(function() {
+            let isPopupOpen = true;
+            $("#popup2").hide();
 
-        // // Set the element's style (including left and top)
-        // newElement.css({
-        // 'width': '5px',  // Adjust width as needed
-        // 'height': '5px', // Adjust height as needed
-        // 'background-color': 'red',
-        // 'position': 'absolute',
-        // 'left': mapPos.left+'px',  // Adjust left position as needed
-        // 'top': mapPos.top+'px'   // Adjust top position as needed
-        // });
+            // Open the popup when the "Open Popup" button is clicked
+            $("#open-popup1").click(function() {
+                if (!isPopupOpen) {
+                    $("#popup1").show();
+                    isPopupOpen = true;
+                }
+            });
+            $("#open-popup2").click(function() {
+                if (!isPopupOpen) {
+                    $("#popup2").show();
+                    isPopupOpen = true;
+                }
+            });
 
-        // // Append the new element to the body (or any other container)
-        // $('body').append(newElement);
-    });
-</script>
+            // Close popup1
+            $("#close-popup1").click(function() {
+                $("#popup1").hide();
+                isPopupOpen = false;
+            });
+            $("#ok-button1").click(function() {
+                $("#popup1").hide();
+                isPopupOpen = false;
+            });
+
+            // Close popup2
+            $("#ok-button2").click(function() {
+                $("#popup2").hide();
+                isPopupOpen = false;
+            });
+            $("#close-popup2").click(function() {
+                $("#popup2").hide();
+                isPopupOpen = false;
+            });
+        });
+    </script>
+</body>
 </html>
+
