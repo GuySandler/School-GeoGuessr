@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A geoguessr clone for campolindo high school">
+    <title>Campoguessr</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+    <link rel="icon" type="image/x-icon" href="/images/campogussr.ico">
+</head>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: ubuntu;
+    }
+    #map {
+        height: 100vh;
+        box-sizing: content-box;
+        z-index: 0;
+        cursor: crosshair;
+    }
+</style>
+<body>
+    <div id="map"></div>
+
+    <div style="position: absolute;top:10%;left:0;padding-right:20px;background-color: #9b1614;color:white;border-radius: 0 10px 10px 0;">
+        <ul id="cordlist">Clicked position cordinates (newest on bottom, reload to clear)</ul>
+
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script>
+        let pin;
+        let map = L.map('map', {maxZoom: 6}).setView([0, 0], 1.5);
+        map.panTo(new L.LatLng(520*2, 400/2));
+
+        let imageBounds = [[0, 0], [(525), (400)]];
+
+        let imageOverlay = L.imageOverlay('./images/unlabeled.webp', imageBounds).addTo(map);
+
+        let previousMarker;
+
+        $(document).ready(function() {
+            let clickedCoord;
+            map.on('click', function(e) {
+                if (previousMarker) {
+                    map.removeLayer(previousMarker);
+                }
+                clickedCoord = e.latlng;
+                previousMarker = L.marker(clickedCoord).addTo(map);
+                $("#cordlist").append('<li>[' + clickedCoord.lng.toFixed(10) + "," + clickedCoord.lat.toFixed(10) + ']</li>');
+            });
+        });
+    </script>
+</body>
+</html>
+

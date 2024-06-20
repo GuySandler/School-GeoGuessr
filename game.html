@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A geoguessr clone for campolindo high school">
+    <title>Campoguessr</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+    <link rel="icon" type="image/x-icon" href="/images/campogussr.ico">
+</head>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: ubuntu;
+    }
+    #map {
+        height: 100vh;
+        box-sizing: content-box;
+        z-index: 0;
+        cursor: crosshair;
+    }
+    .popup {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 25px;
+        border: 2px solid #df2020;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+    }
+    #popup1 {
+        display: hidden;
+    }
+    #popup2 {
+        display: hidden;
+    }
+
+    .popup-content {
+        margin-top: 20px;
+        margin-bottom:20px;
+    }
+
+    .close-popup, .ok-button {
+        padding: 5px 10px;
+        background-color: #ddd;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        background-color: #acaca5;
+    }
+
+    .close-popup {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .ok-button {
+        position: absolute;
+        bottom:10px;
+        left:10px
+    }
+
+    .sidebutton {
+        transform: translateX(10px);
+        position: absolute;
+        right: 0;
+        width: 310px;
+        height: 50px;
+        font-size: 40px;
+        background-color: #ce2f08;
+        color:white;
+        border:none;
+        border-radius: 15px 0 0 15px;
+        border-top: 1px solid white;
+
+        transition: all 0.2s ease-in-out;
+    }
+    .sidebutton:hover {
+        transform: translateX(0px);
+    }
+    .sidebutton:active {
+        background-color: #ff5c33;
+    }
+
+    .smallButton {
+        background-color: green;
+        color:white;
+        border-radius: 3px;
+        border: none;
+        width: 200px;
+        height: 25px;
+    }
+</style>
+<body>
+    <div id="map"></div>
+
+    <button style="top:0" id="open-popup1" class="sidebutton">Instructions</button>
+    <button style="top:50px" id="open-popup2" class="sidebutton">Key</button>
+
+    <button style="bottom:0" id="open-popup3" class="sidebutton">Game Summary</button>
+
+    <div id="img-container" style="position: absolute; bottom: 0; left: 0; width: 25%;padding:10px;background-color: rgb(247, 121, 37);border-radius: 0 20px 0 0;">
+        <img id="img" style="width: 100%; height: 100%;border-radius: 20px">
+        <center><button disabled class="smallButton" style="opacity: .5;cursor:not-allowed;" id="confirm">Confirm Location</button></center>
+    </div>
+
+    <!-- todo: refactor to only be 1 that is changing it's content or make more efficient -->
+    <div id="popup1" class="popup">
+        <div class="popup-content">
+            <center>Welcome to CampoGuessr</center>
+            <br>
+            You can: <ul><li>zoom</li> <li>pan</li> <li>click on the location you think the image is from</li></ul>
+            The closer you are the more points! <br>
+            Good luck! <br> <br>
+            Show this on start?
+            <input type="checkbox" id="ShowOnStart">
+        </div>
+        <button id="close-popup1" class="close-popup">X</button>
+        <center><button id="ok-button1" class="ok-button">OK</button></center>
+    </div>
+
+    <div id="popup2" style="width:75%;" class="popup">
+        <div class="popup-content">
+            <img loading="lazy" style="border-radius:5px;width:100%;object-fit: scale-down;" src="images/labeled.webp">
+        </div>
+        <button id="close-popup2" class="close-popup">X</button>
+        <button id="ok-button2" class="ok-button">OK</button>
+    </div>
+
+    <div id="popup3" style="width:50%;" class="popup">
+        <div class="popup-content">
+            <center><h1>game summary</h1></center>
+            <br>
+            <h2 id="score">score: loading/4000</h2>
+            <center><button class="smallButton" style="cursor: pointer;" id="NewGame">NewGame</button></center>
+        </div>
+        <button id="close-popup3" class="close-popup">X</button>
+        <button id="ok-button3" class="ok-button">OK</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+    <script src="
+    https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js
+    "></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script>
+        let pin;
+        let map = L.map('map', {maxZoom: 6}).setView([0, 0], 1.5);
+        map.panTo(new L.LatLng(520*2, 400/2));
+
+        let imageBounds = [[0, 0], [(525), (400)]];
+
+        let imageOverlay = L.imageOverlay('./images/unlabeled.webp', imageBounds).addTo(map);
+
+        let previousMarker;
+        let previousLine;
+
+        function calculateScore(pointA, pointB) {
+            let lat1 = pointA[0];
+            let lng1 = pointA[1];
+            let lat2 = pointB.lat;
+            let lng2 = pointB.lng;
+
+            let x = Math.abs(lng1 - lng2);
+            let y = Math.abs(lat1 - lat2);
+            let distance = 10 * Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+
+            let score = -(distance-4000);
+            if (score <= 0) {
+                score = 0;
+            }
+            return score;
+
+            // score
+            // max 400 (0distance=400points, 400=0)
+        }
+
+        $(document).ready(function() {
+            // location randomizer
+            let locationx;
+            let locationy;
+            $.getJSON("./locations.json", function(data) {
+                const randint = Object.keys(data)[Math.floor(Math.random() * Object.keys(data).length)];
+                const randomLocation = data[randint];
+                const randomX = randomLocation.x;
+                const randomY = randomLocation.y;
+                const randomImg = randomLocation.img;
+                locationx = randomX;
+                locationy = randomY;
+
+                $("#img").attr('src', randomImg);
+                // let pin = L.marker([randomX, randomY]).addTo(map);
+            });
+
+            let clickedCoord;
+            let done = false;
+            map.on('click', function(e) {
+                if (!done) {
+                    if (previousMarker) {
+                        map.removeLayer(previousMarker);
+                    }
+                    // if (previousLine) {
+                    //     map.removeLayer(previousLine);
+                    // }
+
+                    clickedCoord = e.latlng;
+
+                    previousMarker = L.marker(clickedCoord).addTo(map);
+
+                    $("#confirm").prop('disabled', false);
+                    $("#confirm").css({
+                        'opacity': '1',
+                        'cursor': 'pointer'
+                    });
+                }
+            });
+
+
+            $("#confirm").click(function() {
+                if (!done) {
+                    previousLine = L.polyline([[locationx, locationy], clickedCoord], {color: 'red', weight: 2}).addTo(map);
+                    let distance = calculateScore([locationx, locationy], clickedCoord);
+                    console.log("Distance from pin (map units): " + distance);
+                    done = true;
+                }
+                map.fitBounds([
+                    clickedCoord,
+                    [locationx, locationy]
+                ]);
+                $("#img-container").hide();
+                $("#open-popup3").show();
+            });
+
+            $("#NewGame").click(function() {
+                location.reload();
+            });
+            // cookies
+            if (Cookies.get('ShowOnStart') == null) {
+                Cookies.set('ShowOnStart', true);
+                console.log('no cookie found, setting to true');
+            }
+            else {
+                $('#ShowOnStart').prop('checked', JSON.parse(Cookies.get('ShowOnStart')));
+            }
+
+            $('#ShowOnStart').change(function() {
+                Cookies.remove('ShowOnStart')
+                Cookies.set('ShowOnStart', $("#ShowOnStart").is(':checked'));
+                console.log('cookie set to ' + $("#ShowOnStart").is(':checked'));
+            });
+
+            // popups
+            let isPopupOpen = true;
+            if (JSON.parse(Cookies.get('ShowOnStart')) == false) {
+                $("#popup1").hide();
+                isPopupOpen = false;
+            }
+
+            $("#popup2").hide();
+            $("#popup3").hide();
+            $("#open-popup3").hide();
+
+            $("#open-popup1").click(function() {
+                if (!isPopupOpen) {
+                    $("#popup1").show();
+                    isPopupOpen = true;
+                }
+            });
+            $("#open-popup2").click(function() {
+                if (!isPopupOpen) {
+                    $("#popup2").show();
+                    isPopupOpen = true;
+                }
+            });
+            $("#open-popup3").click(function() {
+                if (!isPopupOpen) {
+                    $("#popup3").show();
+                    isPopupOpen = true;
+                }
+            });
+
+            // Close popup1
+            $("#close-popup1").click(function() {
+                $("#popup1").hide();
+                isPopupOpen = false;
+            });
+            $("#close-popup2").click(function() {
+                $("#popup2").hide();
+                isPopupOpen = false;
+            });
+            $("#close-popup3").click(function() {
+                $("#popup3").hide();
+                isPopupOpen = false;
+            });
+
+            // Close popup2
+            $("#ok-button1").click(function() {
+                $("#popup1").hide();
+                isPopupOpen = false;
+            });
+            $("#ok-button2").click(function() {
+                $("#popup2").hide();
+                isPopupOpen = false;
+            });
+            $("#ok-button1").click(function() {
+                $("#popup1").hide();
+                isPopupOpen = false;
+            });
+        });
+    </script>
+</body>
+</html>
+

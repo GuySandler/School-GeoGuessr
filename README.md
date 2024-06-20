@@ -1,1 +1,1 @@
-# School GeoGuessr
+# CampoGuesser

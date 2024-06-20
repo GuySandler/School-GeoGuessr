@@ -1,10 +1,12 @@
 {
     "location1": {
-        "x": 406.5,
-        "y": 490.1875
+        "x": 25,
+        "y": 25,
+        "img": "images/campotestimg.webp"
     },
     "location2": {
-        "x": 459.5,
-        "y": 167.1875
+        "x": 25,
+        "y": 25,
+        "img": "images/campotestimg.webp"
     }
 }
